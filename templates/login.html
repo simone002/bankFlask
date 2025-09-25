@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Login</h2>
+<form method="post">
+    <input type="email" name="email" placeholder="Email" required>
+    <input type="password" name="password" placeholder="Password" required>
+    <button type="submit">Entra</button>
+</form>
+<p>
+    <a href="{{ url_for('routes.register') }}">Non hai un account? Registrati</a>
+</p>
+<p>
+    <a href="{{ url_for('routes.forgot_password') }}">Hai dimenticato la password?</a>
+</p>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Nuovo trasferimento</h2>
+<form id="transfer-form" method="post">
+  <label>IBAN destinatario:</label>
+  <input type="text" name="iban" required>
+
+  <label>Importo (€):</label>
+  <input type="number" name="amount" step="0.01" required>
+
+  <input type="password" name="pin" id="pin-input" style="display:none;">
+
+  <button type="submit">Invia</button>
+</form>
+
+<script>
+document.getElementById('transfer-form').addEventListener('submit', function(e) {
+    e.preventDefault(); 
+
+    let amount = this.querySelector('input[name="amount"]').value;
+    let iban = this.querySelector('input[name="iban"]').value.trim();
+
+    if (!iban) {
+        alert("Inserisci l'IBAN del destinatario!");
+        return;
+    }
+
+    if (!amount || parseFloat(amount) <= 0) {
+        alert("Inserisci un importo valido!");
+        return;
+    }
+
+    let pin = prompt("Inserisci il tuo PIN:");
+    if (!pin) {
+        alert("PIN obbligatorio!");
+        return;
+    }
+
+    document.getElementById('pin-input').value = pin; 
+    this.submit(); 
+});
+</script>
+
+{% endblock %}
+

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Banca Flask</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>Banca Flask</h1>
+    <nav>
+      <a href="{{ url_for('routes.index') }}">Home</a> |
+      {% if session.get("user_id") %}
+        <a href="{{ url_for('routes.dashboard') }}">Dashboard</a> |
+        <a href="{{ url_for('routes.transactions') }}">Transazioni</a> |
+        <a href="{{ url_for('routes.show_user_cards') }}">Carte</a> |
+        <a href="{{ url_for('routes.investments') }}">Investimenti</a> |
+        <a href="{{url_for('routes.crypto') }}">Crypto</a> |
+        <a href="{{ url_for('routes.logout') }}">Logout</a>
+      {% else %}
+        <a href="{{ url_for('routes.login') }}">Login</a> |
+        <a href="{{ url_for('routes.register') }}">Registrati</a>
+      {% endif %}
+    </nav>
+  </header>
+  <div class="container">
+    {% with msgs = get_flashed_messages(with_categories=True) %}
+      {% if msgs %}
+        {% for cat, msg in msgs %}
+          <div class="flash {{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

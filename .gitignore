@@ -1,0 +1,20 @@
+Ambiente virtuale
+.venv
+venv/
+
+Cache di Python e file compilati
+pycache/
+*.pyc
+*.pyo
+
+File di configurazione sensibili
+.env
+
+Database SQLite
+bank.db
+
+IDE specific files (VS Code)
+.vscode/
+
+Flask session files
+flask_session/

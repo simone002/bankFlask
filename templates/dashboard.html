@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Ciao {{ user.name }}!</h2>
+<p>Saldo attuale: <strong>{{ "%.2f"|format(user.balance) }} €</strong></p>
+<p>Il tuo IBAN: <strong>{{ user.iban }}</strong></p>
+
+<h3>Nuova operazione</h3>
+<form id="transaction-form" method="post" action="{{ url_for('routes.transaction') }}">
+  <select name="type">
+    <option value="deposit">Deposito</option>
+    <option value="withdraw">Prelievo</option>
+  </select>
+  <input type="number" step="0.01" name="amount" placeholder="Importo" required>
+  <input type="password" name="pin" id="pin-input" style="display:none;">
+  <button type="submit">Conferma</button>
+</form>
+
+<hr>
+
+<h3>Trasferimento</h3>
+<a href="{{ url_for('routes.transfer') }}">➡️ Vai alla pagina trasferimenti</a>
+
+<hr>
+
+<h3>Impostazioni</h3>
+<p>
+  <a href="{{ url_for('routes.settings') }}">⚙️ Vai alle impostazioni</a>
+</p>
+
+
+<script>
+document.getElementById('transaction-form').addEventListener('submit', function(e) {
+    e.preventDefault(); 
+
+    let amount = this.querySelector('input[name="amount"]').value;
+    if (!amount || parseFloat(amount) <= 0) {
+        alert("Inserisci un importo valido!");
+        return;
+    }
+
+    let pin = prompt("Inserisci il tuo PIN:");
+    if (!pin) {
+        alert("PIN obbligatorio!");
+        return;
+    }
+
+    document.getElementById('pin-input').value = pin; 
+    this.submit();
+});
+</script>
+
+{% endblock %}

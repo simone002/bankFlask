@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Investimenti{% endblock %}
+
+{% block content %}
+<h2>Investimenti</h2>
+
+<div class="tabs">
+  <button onclick="showTab('stocks')" class="{% if active_tab=='stocks' %}active{% endif %}">Stocks</button>
+  <button onclick="showTab('forex')" class="{% if active_tab=='forex' %}active{% endif %}">Forex</button>
+  <button onclick="showTab('crypto')" class="{% if active_tab=='crypto' %}active{% endif %}">Crypto</button>
+</div>
+
+<div id="tab-stocks" class="tab {% if active_tab!='stocks' %}hidden{% endif %}">
+  <form method="post">
+    <input type="hidden" name="tab" value="stocks">
+    <input type="text" name="symbol" placeholder="Ticker (es. AAPL)" required>
+    <button type="submit">Cerca</button>
+  </form>
+
+  {% if stock_data %}
+  <h3>{{ stock_data['01. symbol'] }}</h3>
+  <p>Prezzo: {{ stock_data['05. price'] }} USD</p>
+  <p>Variazione: {{ stock_data['09. change'] }} ({{ stock_data['10. change percent'] }})</p>
+  <canvas id="stockChart" width="400" height="200"></canvas>
+  {% endif %}
+</div>
+
+<div id="tab-forex" class="tab {% if active_tab!='forex' %}hidden{% endif %}">
+  <form method="post">
+    <input type="hidden" name="tab" value="forex">
+    <input type="text" name="base" placeholder="Base (es. USD)" required>
+    <input type="text" name="quote" placeholder="Quote (es. EUR)" required>
+    <button type="submit">Cerca</button>
+  </form>
+
+  {% if forex_data %}
+  <h3>{{ forex_data.base }}/{{ forex_data.quote }}</h3>
+  <p>Tasso: {{ forex_data.rate }}</p>
+  <p>Data: {{ forex_data.asof }}</p>
+  {% endif %}
+</div>
+
+<div id="tab-crypto" class="tab {% if active_tab!='crypto' %}hidden{% endif %}">
+  <form method="post">
+    <input type="hidden" name="tab" value="crypto">
+    <input type="text" name="coin" placeholder="Coin (es. bitcoin)" required>
+    <input type="text" name="vs" placeholder="Valuta (es. usd)" required>
+    <button type="submit">Cerca</button>
+  </form>
+
+  {% if crypto_data %}
+  <h3>{{ crypto_data.coin|capitalize }}/{{ crypto_data.vs|upper }}</h3>
+  <p>Prezzo: {{ crypto_data.price }}</p>
+  {% endif %}
+</div>
+
+{% if historical_data %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const ctx = document.getElementById('stockChart').getContext('2d');
+const historicalData = JSON.parse('{{ historical_data|tojson|safe }}');
+const labels = Object.keys(historicalData).sort((a,b)=> new Date(a)-new Date(b)).slice(-30);
+const data = labels.map(d => parseFloat(historicalData[d]["4. close"]));
+new Chart(ctx, {
+  type: 'line',
+  data: { labels: labels, datasets: [{ label: 'Prezzo', data: data, borderColor: 'blue' }] }
+});
+</script>
+{% endif %}
+
+<style>
+.tabs button { padding: 8px 15px; margin-right: 5px; cursor:pointer; }
+.tabs .active { background: #333; color: white; }
+.tab.hidden { display:none; }
+</style>
+
+<script>
+function showTab(name){
+  document.querySelectorAll(".tab").forEach(el => el.classList.add("hidden"));
+  document.getElementById("tab-"+name).classList.remove("hidden");
+  document.querySelectorAll(".tabs button").forEach(btn=>btn.classList.remove("active"));
+  event.target.classList.add("active");
+}
+</script>
+
+{% endblock %}

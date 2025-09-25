@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="table-container">
+  <h2>Storico Transazioni</h2>
+  <table class="transactions-table">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Tipo</th>
+        <th>Importo</th>
+        <th>Saldo dopo</th>
+        <th>Dettagli</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in transactions %}
+      <tr>
+        <td>{{ t.timestamp.strftime("%d/%m/%Y %H:%M") }}</td>
+        <td>
+          {% if t.type == "deposit" %}
+            Deposito
+          {% elif t.type == "withdraw" %}
+            Prelievo
+          {% elif t.type == "transfer" %}
+            {{ t.category }}
+          {% else %}
+            {{ t.type }}
+          {% endif %}
+        </td>
+        <td>{{ "%.2f"|format(t.amount|abs) }} €</td>
+        <td>{{ "%.2f"|format(t.balance_after) }} €</td>
+        <td>{{ t.details or "-" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

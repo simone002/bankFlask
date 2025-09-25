@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Andamento Criptovalute</h2>
+
+    <form method="post" class="crypto-form">
+        <div class="form-row">
+            <label for="symbol">Scegli Crypto:</label>
+            <select name="symbol" id="symbol">
+                <option value="bitcoin" {% if symbol=="bitcoin" %}selected{% endif %}>Bitcoin</option>
+                <option value="ethereum" {% if symbol=="ethereum" %}selected{% endif %}>Ethereum</option>
+                <option value="cardano" {% if symbol=="cardano" %}selected{% endif %}>Cardano</option>
+                <option value="solana" {% if symbol=="solana" %}selected{% endif %}>Solana</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="days">Periodo:</label>
+            <select name="days" id="days">
+                <option value="7" {% if days==7 %}selected{% endif %}>7 giorni</option>
+                <option value="30" {% if days==30 %}selected{% endif %}>30 giorni</option>
+                <option value="90" {% if days==90 %}selected{% endif %}>90 giorni</option>
+            </select>
+        </div>
+        <button type="submit">Aggiorna</button>
+    </form>
+
+    <div class="crypto-chart-container">
+        <canvas id="cryptoChart"></canvas>
+    </div>
+
+    <hr>
+    <h3>Simulazione Trading (Saldo: {{ user.balance|round(2) }} USD)</h3>
+    <form method="post" class="crypto-form">
+        <div class="form-row">
+            <input type="hidden" name="symbol" value="{{ symbol }}">
+            <input type="hidden" name="days" value="{{ request.form.days or 30 }}">
+            <input type="number" name="quantity" step="0.0001" placeholder="Quantità">
+            <select name="action">
+                <option>Compra</option>
+                <option>Vendi</option>
+            </select>
+            <button type="submit">Simula</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let rawData = [];
+    try {
+        rawData = JSON.parse('{{ price_data|tojson }}');
+    } catch(e) {
+        console.warn("Errore nel parsing dei dati:", e);
+    }
+
+    const chartContainer = document.getElementById('cryptoChart');
+    if (rawData.length > 0) {
+        const labels = rawData.map(d => new Date(d[0]).toLocaleDateString());
+        const values = rawData.map(d => d[1]);
+        const ctx = chartContainer.getContext('2d');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "{{ symbol|capitalize }} (USD)",
+                    data: values,
+                    borderColor: "#16a34a",
+                    backgroundColor: "rgba(22,163,74,0.2)",
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+            }
+        });
+    } else {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'no-data-message';
+        messageDiv.innerHTML = '<p>Nessun dato disponibile per il grafico. Seleziona una criptovaluta e un periodo per visualizzare l\'andamento.</p>';
+        chartContainer.parentNode.replaceChild(messageDiv, chartContainer);
+    }
+</script>
+{% endblock %}

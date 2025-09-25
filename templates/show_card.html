@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>La tua carta fisica</h2>
+
+<div class="card-page-container">
+    <div class="card-container">
+        <div class="card">
+            <p><strong>Numero carta:</strong> {{ card.number[:4] }} **** **** {{ card.number[-4:] }}</p>
+            <p><strong>Intestatario:</strong> {{ user.name }}</p>
+            <p><strong>IBAN:</strong> {{ user.iban }}</p>
+            <p><strong>Saldo attuale:</strong> {{ "%.2f"|format(user.balance) }} €</p>
+            <p><strong>Scadenza:</strong> {{ card.expiry }}</p>
+            <p><strong>CVV:</strong> <span id="cvv">{{ card.cvv if show_cvv else '***' }}</span></p>
+            <form id="cvv-form" method="post" action="{{ url_for('routes.show_card', card_id=card.id) }}">
+                <input type="hidden" name="pin" id="pin-input">
+                <button type="button" id="show-cvv-btn">Mostra CVV</button>
+            </form>
+
+            {% if card.blocked %}
+                <p style="color: red;"><strong>La tua carta è bloccata.</strong></p>
+            {% else %}
+                <form method="post" action="{{ url_for('routes.block_card', card_id=card.id) }}">
+                    <button type="submit" style="background-color: red; color: white;">Blocca Carta</button>
+                </form>
+            {% endif %}
+            {% if card.blocked %}
+                <form method="post" action="{{ url_for('routes.unblock_card', card_id=card.id) }}">
+                    <button type="submit" style="background-color: green; color: white;">Sblocca Carta</button>
+                </form>
+            {% endif %}
+    </div>
+</div>
+
+<script>
+document.getElementById('show-cvv-btn').addEventListener('click', function() {
+    let pin = prompt("Inserisci il tuo PIN per visualizzare il CVV:");
+    if (!pin) {
+        alert("PIN obbligatorio!");
+        return;
+    }
+    document.getElementById('pin-input').value = pin;
+    document.getElementById('cvv-form').submit();
+});
+</script>
+
+{% endblock %}

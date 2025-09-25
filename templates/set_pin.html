@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Imposta PIN</h2>
+<form method="post">
+  <label>Nuovo PIN (6 cifre):</label>
+  <input type="text" name="pin" pattern="\d{6}" required>
+
+  <button type="submit">Imposta PIN</button>
+</form>
+{% endblock %}
