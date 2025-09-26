@@ -233,34 +233,231 @@ height: 400px;
 width: 100%;
 }
 
-/* Nuovi stili per la pagina crypto */
-.crypto-form {
-display: flex;
-flex-direction: column;
-gap: 1em;
+
+/* Form investimenti */
+.investments-form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+  margin-bottom: 2em;
 }
 
-.crypto-form .form-row {
-display: flex;
-gap: 1em;
-flex-wrap: wrap;
-align-items: flex-end;
+.form-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
 }
 
-.crypto-form .form-row label,
-.crypto-form .form-row select,
-.crypto-form .form-row input,
-.crypto-form .form-row button {
-flex: 1;
-min-width: 120px;
+.form-field-group label {
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 0.3em;
 }
 
-.crypto-chart-container {
-height: 400px;
-width: 100%;
-background: #ffffff;
-border-radius: 8px;
-box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-padding: 1.5em;
-margin-top: 2em;
+.investments-button {
+  margin-top: 1em;
+  background: #1a73e8 !important;
+  transition: all 0.3s ease;
 }
+
+.investments-button:hover {
+  background: #155ab6 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(26,115,232,0.3);
+}
+
+/* Select styling */
+select {
+  padding: 0.7em;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 1em;
+  background-color: white;
+  cursor: pointer;
+}
+
+select:focus {
+  outline: none;
+  border-color: #1a73e8;
+  box-shadow: 0 0 5px rgba(26,115,232,0.5);
+}
+
+/* Container per informazioni di mercato */
+.data-container {
+  margin-top: 2em;
+  padding: 1.5em;
+  background: #f8f9fa;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border-left: 4px solid #1a73e8;
+}
+
+.data-container h3 {
+  color: #1a73e8;
+  margin-top: 0;
+  margin-bottom: 1em;
+  text-align: left;
+}
+
+.data-container #currentPrice {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #2ecc71;
+  margin-bottom: 1em;
+  padding: 0.8em;
+  background: white;
+  border-radius: 5px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Griglia delle statistiche */
+.data-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1em;
+  margin-top: 1em;
+}
+
+.data-card {
+  background: white;
+  padding: 1em;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  border: 1px solid #e9ecef;
+  transition: all 0.2s ease;
+}
+
+.data-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.data-card p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.data-card p:first-child {
+  font-size: 1.3em;
+  font-weight: bold;
+  color: #1a73e8;
+  margin-bottom: 0.3em;
+}
+
+.data-card p:last-child {
+  font-size: 0.9em;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+/* Container del grafico */
+.chart-container {
+  margin-top: 2em;
+  padding: 1.5em;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  height: 400px;
+  width: 100%;
+  position: relative;
+}
+
+.chart-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Responsive design per mobile */
+@media (max-width: 768px) {
+  .data-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.8em;
+  }
+  
+  .data-card {
+    padding: 0.8em;
+  }
+  
+  .data-card p:first-child {
+    font-size: 1.1em;
+  }
+  
+  .chart-container {
+    height: 300px;
+    padding: 1em;
+  }
+  
+  .data-container {
+    padding: 1em;
+  }
+}
+
+@media (max-width: 480px) {
+  .data-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .investments-form-container {
+    gap: 0.8em;
+  }
+  
+  .data-container #currentPrice {
+    font-size: 1em;
+    padding: 0.6em;
+  }
+}
+
+/* Animazioni per i trade points */
+@keyframes tradeAdded {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Stile per messaggi di errore specifici degli investimenti */
+.flash.error {
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* Miglioramenti per l'accessibilità */
+button:focus,
+select:focus,
+input:focus {
+  outline: 2px solid #1a73e8;
+  outline-offset: 2px;
+}
+
+/* Loading state per il prezzo */
+.loading {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+

@@ -1,87 +1,286 @@
 {% extends "base.html" %}
-
-{% block title %}Investimenti{% endblock %}
-
 {% block content %}
-<h2>Investimenti</h2>
+<div class="container">
+  <h2>Investimenti Crypto</h2>
 
-<div class="tabs">
-  <button onclick="showTab('stocks')" class="{% if active_tab=='stocks' %}active{% endif %}">Stocks</button>
-  <button onclick="showTab('forex')" class="{% if active_tab=='forex' %}active{% endif %}">Forex</button>
-  <button onclick="showTab('crypto')" class="{% if active_tab=='crypto' %}active{% endif %}">Crypto</button>
+  <!-- Form per selezione crypto (separato) -->
+  <div class="investments-form-container">
+    <form method="get" action="{{ url_for('routes.investments') }}" style="margin-bottom: 2em;">
+      <div class="form-field-group">
+        <label for="symbol">Crypto:</label>
+        <select name="symbol" id="symbol" onchange="this.form.submit()">
+          <option value="bitcoin" {% if symbol == "bitcoin" %}selected{% endif %}>Bitcoin</option>
+          <option value="ethereum" {% if symbol == "ethereum" %}selected{% endif %}>Ethereum</option>
+          <option value="solana" {% if symbol == "solana" %}selected{% endif %}>Solana</option>
+        </select>
+      </div>
+    </form>
+
+    <!-- Form per il trading -->
+    <form method="post" action="{{ url_for('routes.investments') }}">
+      <input type="hidden" name="symbol" value="{{ symbol }}">
+      
+      <div class="form-field-group">
+        <label for="amount">Quantità:</label>
+        <input type="number" step="0.0001" name="amount" id="amount" required>
+      </div>
+
+      <div class="form-field-group">
+        <label for="side">Operazione:</label>
+        <select name="side" id="side">
+          <option value="buy">Compra</option>
+          <option value="sell">Vendi</option>
+        </select>
+      </div>
+
+      <button type="submit" class="investments-button">Esegui Trade</button>
+    </form>
+  </div>
+
+  <div class="data-container">
+    <h3>Informazioni di Mercato</h3>
+    <div id="currentPrice">Caricamento prezzo...</div>
+    
+    <div class="data-grid">
+      <div class="data-card">
+        <p><strong id="totalTrades">0</strong></p>
+        <p>Trade Totali</p>
+      </div>
+      <div class="data-card">
+        <p><strong id="avgPrice">-</strong></p>
+        <p>Prezzo Medio</p>
+      </div>
+      <div class="data-card">
+        <p><strong id="priceRange">-</strong></p>
+        <p>Range Prezzo</p>
+      </div>
+      <div class="data-card">
+        <p><strong id="lastUpdate">-</strong></p>
+        <p>Ultimo Aggiornamento</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="cryptoChart"></canvas>
+  </div>
 </div>
 
-<div id="tab-stocks" class="tab {% if active_tab!='stocks' %}hidden{% endif %}">
-  <form method="post">
-    <input type="hidden" name="tab" value="stocks">
-    <input type="text" name="symbol" placeholder="Ticker (es. AAPL)" required>
-    <button type="submit">Cerca</button>
-  </form>
-
-  {% if stock_data %}
-  <h3>{{ stock_data['01. symbol'] }}</h3>
-  <p>Prezzo: {{ stock_data['05. price'] }} USD</p>
-  <p>Variazione: {{ stock_data['09. change'] }} ({{ stock_data['10. change percent'] }})</p>
-  <canvas id="stockChart" width="400" height="200"></canvas>
-  {% endif %}
-</div>
-
-<div id="tab-forex" class="tab {% if active_tab!='forex' %}hidden{% endif %}">
-  <form method="post">
-    <input type="hidden" name="tab" value="forex">
-    <input type="text" name="base" placeholder="Base (es. USD)" required>
-    <input type="text" name="quote" placeholder="Quote (es. EUR)" required>
-    <button type="submit">Cerca</button>
-  </form>
-
-  {% if forex_data %}
-  <h3>{{ forex_data.base }}/{{ forex_data.quote }}</h3>
-  <p>Tasso: {{ forex_data.rate }}</p>
-  <p>Data: {{ forex_data.asof }}</p>
-  {% endif %}
-</div>
-
-<div id="tab-crypto" class="tab {% if active_tab!='crypto' %}hidden{% endif %}">
-  <form method="post">
-    <input type="hidden" name="tab" value="crypto">
-    <input type="text" name="coin" placeholder="Coin (es. bitcoin)" required>
-    <input type="text" name="vs" placeholder="Valuta (es. usd)" required>
-    <button type="submit">Cerca</button>
-  </form>
-
-  {% if crypto_data %}
-  <h3>{{ crypto_data.coin|capitalize }}/{{ crypto_data.vs|upper }}</h3>
-  <p>Prezzo: {{ crypto_data.price }}</p>
-  {% endif %}
-</div>
-
-{% if historical_data %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 <script>
-const ctx = document.getElementById('stockChart').getContext('2d');
-const historicalData = JSON.parse('{{ historical_data|tojson|safe }}');
-const labels = Object.keys(historicalData).sort((a,b)=> new Date(a)-new Date(b)).slice(-30);
-const data = labels.map(d => parseFloat(historicalData[d]["4. close"]));
-new Chart(ctx, {
-  type: 'line',
-  data: { labels: labels, datasets: [{ label: 'Prezzo', data: data, borderColor: 'blue' }] }
-});
+  const ctx = document.getElementById('cryptoChart').getContext('2d');
+  let symbol = "{{ symbol }}";
+
+  // Trades dal backend (convertiti da JSON)
+  const trades = JSON.parse(`{{ trades_json | safe }}`);
+
+  let chart = new Chart(ctx, {
+    type: "line",
+    data: {
+      datasets: [
+        {
+          label: symbol.toUpperCase() + " (USD)",
+          data: [],
+          borderColor: "#1a73e8",
+          backgroundColor: "rgba(26,115,232,0.1)",
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+          pointHoverRadius: 5
+        },
+        {
+          label: "Trade BUY",
+          data: [],
+          type: "scatter",
+          backgroundColor: "#2ecc71",
+          borderColor: "#27ae60",
+          pointRadius: 8,
+          pointHoverRadius: 10,
+          borderWidth: 2
+        },
+        {
+          label: "Trade SELL", 
+          data: [],
+          type: "scatter",
+          backgroundColor: "#e74c3c",
+          borderColor: "#c0392b",
+          pointRadius: 8,
+          pointHoverRadius: 10,
+          borderWidth: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top',
+        },
+        tooltip: {
+          mode: 'point',
+          intersect: false,
+          callbacks: {
+            label: function(context) {
+              if (context.datasetIndex === 0) {
+                return `Prezzo: $${context.raw.y.toLocaleString()}`;
+              } else {
+                const action = context.datasetIndex === 1 ? "COMPRATO" : "VENDUTO";
+                return `${action}: $${context.raw.y.toLocaleString()}`;
+              }
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: "time",
+          time: { 
+            unit: "minute",
+            displayFormats: {
+              minute: 'HH:mm'
+            }
+          },
+          title: {
+            display: true,
+            text: 'Tempo'
+          }
+        },
+        y: {
+          title: {
+            display: true,
+            text: 'Prezzo (USD)'
+          },
+          ticks: {
+            callback: function(value) {
+              return '$' + value.toLocaleString();
+            }
+          }
+        }
+      },
+      interaction: {
+        mode: 'nearest',
+        axis: 'x',
+        intersect: false
+      }
+    }
+  });
+
+  // Aggiorna i trade points nel grafico
+  function updateTradePoints() {
+    const buyTrades = trades.filter(t => t.side === "buy").map(t => ({
+      x: new Date(t.timestamp),
+      y: t.price
+    }));
+    
+    const sellTrades = trades.filter(t => t.side === "sell").map(t => ({
+      x: new Date(t.timestamp),
+      y: t.price
+    }));
+
+    chart.data.datasets[1].data = buyTrades;
+    chart.data.datasets[2].data = sellTrades;
+    
+    updateStats();
+  }
+
+  // Aggiorna le statistiche
+  function updateStats() {
+    document.getElementById('totalTrades').textContent = trades.length;
+    
+    if (trades.length > 0) {
+      const avgPrice = trades.reduce((sum, t) => sum + t.price, 0) / trades.length;
+      document.getElementById('avgPrice').textContent = '$' + avgPrice.toLocaleString(undefined, {maximumFractionDigits: 0});
+      
+      const minPrice = Math.min(...trades.map(t => t.price));
+      const maxPrice = Math.max(...trades.map(t => t.price));
+      document.getElementById('priceRange').textContent = `$${minPrice.toLocaleString()} - $${maxPrice.toLocaleString()}`;
+    }
+  }
+
+  // Fetch del prezzo dalla API del backend
+  async function fetchPrice() {
+      try {
+        // 1. Fetch dall'API, che ora restituisce la cronologia completa (array 'history')
+        let res = await fetch(`/api/crypto/${symbol}`);
+        let data = await res.json();
+        
+        // Controlla se l'array history esiste e non è vuoto
+        if (!data.history || data.history.length === 0) {
+            throw new Error("Cronologia prezzi non disponibile.");
+        }
+
+        // 2. Mappa l'array history nel formato dati di Chart.js (x: data, y: prezzo)
+        const priceHistory = data.history.map(item => ({
+          x: new Date(item.timestamp),
+          y: item.price
+        }));
+        
+        // Sostituisci l'intera serie del grafico del prezzo con la cronologia
+        chart.data.datasets[0].data = priceHistory;
+
+        // 3. Estrai l'ultimo punto per l'aggiornamento corrente
+        const lastPoint = priceHistory[priceHistory.length - 1];
+        const timestamp = lastPoint.x;
+        const currentPrice = lastPoint.y;
+
+        // Aggiorna il display del prezzo corrente
+        document.getElementById('currentPrice').innerHTML = 
+          `<strong>${symbol.toUpperCase()}</strong>: $${currentPrice.toLocaleString(undefined, {maximumFractionDigits: 2})}`;
+
+        // Aggiorna timestamp ultimo aggiornamento
+        document.getElementById('lastUpdate').textContent = timestamp.toLocaleTimeString();
+
+        
+        // 4. Aggiorna i punti dei trade (già implementato correttamente)
+        updateTradePoints();
+
+        // 5. Ricalcola le scale X e Y per includere tutti i punti (Cronologia + Trade)
+        const allPrices = [
+          ...priceHistory.map(d => d.y), // Prezzi storici
+          ...trades.map(t => t.price)    // Prezzi dei trade
+        ];
+        
+        const allTimestamps = [
+            ...priceHistory.map(d => d.x.getTime()),
+            ...trades.map(t => new Date(t.timestamp).getTime())
+        ];
+        
+        if (allPrices.length > 0) {
+          // Scala Y (Prezzo)
+          const minPrice = Math.min(...allPrices);
+          const maxPrice = Math.max(...allPrices);
+          const paddingY = (maxPrice - minPrice) * 0.1; // 10% padding
+          
+          chart.options.scales.y.min = minPrice - paddingY;
+          chart.options.scales.y.max = maxPrice + paddingY;
+
+          // Scala X (Tempo)
+          const minTime = Math.min(...allTimestamps);
+          const maxTime = Math.max(...allTimestamps);
+          
+          // Imposta l'inizio della scala X sul timestamp più vecchio (per includere i vecchi trade)
+          chart.options.scales.x.min = minTime; 
+          // Imposta la fine della scala X sul timestamp corrente (o il più recente)
+          chart.options.scales.x.max = maxTime; 
+        }
+
+        chart.update('none'); 
+        
+      } catch (err) {
+        console.error("Errore fetch prezzo:", err);
+        document.getElementById('currentPrice').innerHTML = 
+          `<span style="color: #e74c3c;">Errore caricamento prezzo</span>`;
+      }
+  }
+
+
+  // Inizializzazione
+  updateTradePoints();
+  fetchPrice();
+  
+  // Aggiorna il prezzo ogni 15 secondi
+  setInterval(fetchPrice, 15000);
 </script>
-{% endif %}
-
-<style>
-.tabs button { padding: 8px 15px; margin-right: 5px; cursor:pointer; }
-.tabs .active { background: #333; color: white; }
-.tab.hidden { display:none; }
-</style>
-
-<script>
-function showTab(name){
-  document.querySelectorAll(".tab").forEach(el => el.classList.add("hidden"));
-  document.getElementById("tab-"+name).classList.remove("hidden");
-  document.querySelectorAll(".tabs button").forEach(btn=>btn.classList.remove("active"));
-  event.target.classList.add("active");
-}
-</script>
-
 {% endblock %}

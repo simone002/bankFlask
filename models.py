@@ -49,3 +49,36 @@ class Card(db.Model):
 
     def __repr__(self):
         return f'<Card {self.number} for User {self.user_id}>'
+
+
+class CryptoTrade(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    symbol = db.Column(db.String(10), nullable=False)  # es. BTC
+    side = db.Column(db.String(4), nullable=False)  # BUY / SELL
+    amount = db.Column(db.Float, nullable=False)  # quanto investito
+    price = db.Column(db.Float, nullable=False)   # prezzo al momento del trade
+    timestamp = db.Column(db.DateTime, default=datetime.now)
+
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "symbol": self.symbol,
+            "action": self.action,
+            "price": self.price,
+            "quantity": self.quantity,
+            "timestamp": self.timestamp.isoformat()
+        }
+    
+class CryptoPriceHistory(db.Model):
+    """
+    Memorizza la cronologia dei prezzi delle criptovalute per la visualizzazione sul grafico.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    symbol = db.Column(db.String(10), nullable=False, index=True)  # es. 'bitcoin'
+    price = db.Column(db.Float, nullable=False)                  # Prezzo in USD
+    timestamp = db.Column(db.DateTime, default=datetime.now, nullable=False, index=True)
+
+    def __repr__(self):
+        return f'<PriceHistory {self.symbol} @ {self.price} on {self.timestamp}>'

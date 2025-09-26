@@ -1,14 +1,15 @@
+import json
 import random
 import string
 import smtplib
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from email.mime.text import MIMEText
-from flask import render_template, request, redirect, session, url_for, flash, Response, Blueprint, current_app as app
+from flask import jsonify, render_template, request, redirect, session, url_for, flash, Response, Blueprint, current_app as app
 import requests
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User, Transaction, Card
+from models import CryptoPriceHistory, CryptoTrade, db, User, Transaction, Card
 from prices import PriceError, get_crypto_price, get_fx_rate
-from utility import generate_iban, send_otp, generate_card, send_security_alert
+from utility import generate_iban, send_otp, generate_card, send_security_alert, fetch_crypto_price,get_crypto_price
 
 from itsdangerous import URLSafeTimedSerializer
 
@@ -467,99 +468,116 @@ def set_new_password():
     return render_template("set_new_password.html")
 
 
-
 @bp.route("/investments", methods=["GET", "POST"])
 def investments():
-    active_tab = request.form.get("tab", "stocks")  
-    stock_data, historical_data = None, None
-    forex_data, crypto_data = None, None
-    api_key = app.config['ALPHA_VANTAGE_API_KEY']
+    user = User.query.get(session["user_id"])
+    # se il form POST manda un symbol, usalo; altrimenti default
+    symbol = request.form.get("symbol", request.args.get("symbol", "bitcoin"))
 
-    try:
-        if active_tab == "stocks" and request.method == "POST":
-            symbol = request.form.get("symbol", "AAPL").upper()
-            url = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={symbol}&apikey={api_key}"
-            r = requests.get(url)
-            js = r.json()
-            stock_data = js.get("Global Quote", {})
-            # storico prezzi (ultimi 30 giorni)
-            url_hist = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={api_key}"
-            r = requests.get(url_hist)
-            js_hist = r.json()
-            historical_data = js_hist.get("Time Series (Daily)", {})
+    if request.method == "POST":
+        # Check if this is just a symbol change (no amount provided)
+        amount_str = request.form.get("amount", "").strip()
+        
+        if not amount_str:
+            # This is just a symbol change, redirect to GET with the new symbol
+            return redirect(url_for("routes.investments", symbol=symbol))
+        
+        # This is an actual trade submission
+        side = request.form["side"]
+        try:
+            amount = float(amount_str)
+        except ValueError:
+            flash("Importo non valido!", "error")
+            return redirect(url_for("routes.investments", symbol=symbol))
+        
+        if amount <= 0:
+            flash("L'importo deve essere positivo!", "error")
+            return redirect(url_for("routes.investments", symbol=symbol))
+        
+        try:
+            price = get_crypto_price(symbol)
+        except Exception:
+            flash("Errore recupero prezzo", "error")
+            return redirect(url_for("routes.investments", symbol=symbol))
 
-        elif active_tab == "forex" and request.method == "POST":
-            base = request.form.get("base", "USD").upper()
-            quote = request.form.get("quote", "EUR").upper()
-            rate, asof = get_fx_rate(base, quote)
-            forex_data = {"base": base, "quote": quote, "rate": rate, "asof": asof}
+        trade = CryptoTrade(
+            user_id=user.id,
+            symbol=symbol,
+            side=side,
+            amount=amount,
+            price=price
+        )
+        db.session.add(trade)
+        db.session.commit()
+        flash("Trade salvato!", "success")
+        # redirect con query param per restare sulla stessa moneta
+        return redirect(url_for("routes.investments", symbol=symbol))
 
-        elif active_tab == "crypto" and request.method == "POST":
-            coin = request.form.get("coin", "bitcoin").lower()
-            vs = request.form.get("vs", "usd").lower()
-            price = get_crypto_price(coin, vs)
-            crypto_data = {"coin": coin, "vs": vs, "price": price}
-
-    except PriceError as e:
-        flash(str(e), "error")
-    except Exception as e:
-        flash(f"Errore API: {e}", "error")
+    # GET: carica trades per la moneta selezionata
+    trades = CryptoTrade.query.filter_by(user_id=user.id, symbol=symbol).all()
+    trades_json = json.dumps([
+        {
+            "timestamp": t.timestamp.isoformat(),
+            "price": t.price,
+            "side": t.side
+        } for t in trades
+    ])
 
     return render_template("investments.html",
-                           active_tab=active_tab,
-                           stock_data=stock_data,
-                           historical_data=historical_data,
-                           forex_data=forex_data,
-                           crypto_data=crypto_data)
+                           symbol=symbol,
+                           trades_json=trades_json)
 
 
-#Simulazione Acquisto bitcoin
-@bp.route("/crypto", methods=["GET", "POST"])
-def crypto():
-    if "user_id" not in session:
-        flash("Devi accedere per visualizzare la sezione crypto.", "error")
-        return redirect(url_for("routes.login"))
 
-    user = User.query.get(session["user_id"])
-    symbol = request.form.get("symbol", "bitcoin")
-    days = int(request.form.get("days", 30))
-    action = request.form.get("action")
-    quantity = request.form.get("quantity")
 
-    url = f"https://api.coingecko.com/api/v3/coins/{symbol}/market_chart"
-    params = {"vs_currency": "usd", "days": days}
+PRICE_HISTORY_LIMIT = 50 # Quanti punti (righe) vogliamo mantenere per ogni simbolo
 
-    price_data = []
-    current_price = 0
+@bp.route("/api/crypto/<symbol>")
+def api_crypto(symbol):
+    """
+    Recupera il prezzo corrente, lo salva nel DB e restituisce la cronologia.
+    """
+    # 1. Ottieni il prezzo corrente
     try:
-        r = requests.get(url, params=params)
-        r.raise_for_status()
-        data = r.json()
-        price_data = data.get("prices", [])
-        if price_data:
-            current_price = price_data[-1][1]
-    except Exception as e:
-        flash(f"Errore API CoinGecko: {e}", "error")
+        current_price = get_crypto_price(symbol)
+    except Exception:
+        return jsonify({"error": "Errore nel recupero del prezzo della crypto"}), 500
 
-    if request.method == "POST" and action and quantity:
-        try:
-            quantity = float(quantity)
-            total_cost = quantity * current_price
+    now = datetime.now()
 
-            if action == "Compra":
-                if total_cost > user.balance:
-                    flash("Saldo insufficiente per acquistare.", "error")
-                else:
-                    user.balance -= total_cost
-                    db.session.commit()
-                    flash(f"Hai acquistato {quantity} {symbol} per {total_cost:.2f} USD.", "success")
-            elif action == "Vendi":
-                user.balance += total_cost
-                db.session.commit()
-                flash(f"Hai venduto {quantity} {symbol} per {total_cost:.2f} USD.", "success")
-        except ValueError:
-            flash("Quantità non valida.", "error")
+    # 2. Salva il nuovo punto nel database
+    new_data_point = CryptoPriceHistory(
+        symbol=symbol,
+        price=current_price,
+        timestamp=now
+    )
+    db.session.add(new_data_point)
+    db.session.commit()
 
-    return render_template("crypto.html", symbol=symbol, price_data=price_data, user=user)
+    # 3. Recupera la cronologia (limitata)
+    # Recupera gli ultimi N punti per il simbolo corrente
+    price_history_objects = CryptoPriceHistory.query.filter_by(symbol=symbol) \
+        .order_by(CryptoPriceHistory.timestamp.desc()) \
+        .limit(PRICE_HISTORY_LIMIT) \
+        .all()
+    
+    # Inverti l'ordine per avere il punto più vecchio per primo nel grafico
+    price_history_objects.reverse() 
 
+    # 4. Formatta e pulisci i dati
+    history = [
+        {
+            "price": p.price,
+            "timestamp": p.timestamp.isoformat()
+        } for p in price_history_objects
+    ]
+    
+    # (OPZIONALE) Pulizia del DB: Rimuove i dati più vecchi del limite per mantenere il DB snello.
+    # Questo è più efficiente se eseguito occasionalmente, non ad ogni chiamata API.
+    # Per semplicità qui non lo implementiamo, ma è una best practice.
+
+    # 5. Restituisci la cronologia completa
+    return jsonify({
+        "history": history
+    })
 

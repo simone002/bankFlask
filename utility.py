@@ -1,4 +1,5 @@
 # utility.py
+import requests
 from models import User, Card, db
 from flask import session, url_for, current_app as app
 from datetime import datetime, timedelta
@@ -6,6 +7,12 @@ import smtplib
 from email.mime.text import MIMEText
 import random
 import string
+
+CRYPTO_MAP = {
+    "BTC": "bitcoin",
+    "ETH": "ethereum",
+    "DOGE": "dogecoin"
+}
 
 def generate_iban():
     # structure Italian IBAN:
@@ -123,3 +130,13 @@ def send_security_alert(email, ip=None, user_agent=None, attempts=0, locked_unti
     except Exception as e:
         # non vogliamo far crashare il login per problemi di mail — logga l'errore
         app.logger.exception("Errore invio security alert: %s", e)
+
+def fetch_crypto_price(symbol="bitcoin", vs="usd"):
+    url = f"https://api.coingecko.com/api/v3/simple/price?ids={symbol}&vs_currencies={vs}"
+    r = requests.get(url).json()
+    return r.get(symbol, {}).get(vs, None)
+
+def get_crypto_price(symbol):
+    url = f"https://api.coingecko.com/api/v3/simple/price?ids={symbol}&vs_currencies=usd"
+    r = requests.get(url).json()
+    return r[symbol]["usd"]
