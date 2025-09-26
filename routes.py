@@ -13,6 +13,8 @@ from utility import generate_iban, send_otp, generate_card, send_security_alert,
 
 from itsdangerous import URLSafeTimedSerializer
 
+PRICE_HISTORY_LIMIT = 50
+
 def get_serializer():
     secret_key = app.config.get('SECRET_KEY', 'default-secret-key')
     return URLSafeTimedSerializer(secret_key)
@@ -527,10 +529,6 @@ def investments():
                            symbol=symbol,
                            trades_json=trades_json)
 
-
-
-
-PRICE_HISTORY_LIMIT = 50 # Quanti punti (righe) vogliamo mantenere per ogni simbolo
 
 @bp.route("/api/crypto/<symbol>")
 def api_crypto(symbol):

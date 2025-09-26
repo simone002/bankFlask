@@ -72,7 +72,6 @@
   const ctx = document.getElementById('cryptoChart').getContext('2d');
   let symbol = "{{ symbol }}";
 
-  // Trades dal backend (convertiti da JSON)
   const trades = JSON.parse(`{{ trades_json | safe }}`);
 
   let chart = new Chart(ctx, {
